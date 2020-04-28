@@ -1,0 +1,40 @@
+# Cleaning
+```{r}
+#NA's
+pot_nas <- c("", " ", "  ", ".", ",", "NaN", "NAN", "nan", "NA", "na", "N/A", "n/a")
+
+# , "NULL", "Null", "null" keeping null makes filtering easier
+
+# import dataset
+autodata <- read_csv("./core_data/repurchase_training.csv", na = pot_nas)
+
+# Target, age band, gender, model, segment to factor
+autodata$Target <- as.factor(autodata$Target)
+autodata$gender <- as.factor(autodata$gender)
+autodata$car_model <- as.factor(autodata$car_model)
+autodata$car_segment <- as.factor(autodata$car_segment)
+
+str(autodata)
+```
+
+```{r, eval = FALSE}
+#age range to mean
+ages <- data.frame(age_band = unique(na.omit(autodata$age_band)), age_mid = NA, stringsAsFactors = FALSE)
+ages[ages$age_band == "1. <25", "age_mid"] <- floor((18+25)/2)
+ages[ages$age_band == "2. 25 to 34","age_mid"] <- floor((25+34)/2)
+ages[ages$age_band == "3. 35 to 44","age_mid"] <- floor((35+44)/2)
+ages[ages$age_band == "4. 45 to 54","age_mid"] <- floor((45+54)/2)
+ages[ages$age_band == "5. 55 to 64","age_mid"] <- floor((55+64)/2)
+ages[ages$age_band == "6. 65 to 74","age_mid"] <- floor((5+74)/2)
+ages[ages$age_band == "7. 75+","age_mid"] <- floor((75+85)/2)
+
+autodata <- merge(autodata, ages, by = "age_band", all.x = TRUE)
+
+autodata$age_band <- as.factor(autodata$age_band)
+```
+
+```{r}
+autodata_clean <- autodata
+save(autodata_clean, file = "./core_data/autodata_clean.Rdata")
+```
+

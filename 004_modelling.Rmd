@@ -1,0 +1,26 @@
+# Modelling
+```{r}
+load(file = "./core_data/autodata_prep.Rdata")
+```
+
+## linear model
+```{r}
+
+```
+
+## Tree model
+```{r}
+
+```
+
+
+## Tree model split 
+```{r}
+```
+
+
+## Tree model gender filled
+
+## Tree model age filled
+
+## Tree model with filled variables

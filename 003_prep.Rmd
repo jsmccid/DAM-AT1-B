@@ -1,0 +1,74 @@
+# Data Preparation
+```{r}
+load(file = "./core_data/autodata_clean.Rdata")
+```
+
+
+```{r}
+# total km's
+
+
+# 
+```
+
+
+```{r}
+# test and train sets
+autodata_purch <- autodata_clean %>% 
+  filter(Target == 1)
+
+autodata_nopurch <- autodata_clean %>% 
+  filter(Target != 1)
+
+set.seed(85)
+
+autodata_purch_train_ind <- sample(seq_len(nrow(autodata_purch)), floor(nrow(autodata_purch)*0.75),replace = FALSE)
+autodata_purch_train <- autodata_purch[autodata_purch_train_ind,]
+autodata_purch_test <- autodata_purch[-autodata_purch_train_ind,]
+
+autodata_nopurch_train_ind <- sample(seq_len(nrow(autodata_nopurch)),floor(nrow(autodata_nopurch)*0.75), replace = FALSE)
+autodata_nopurch_train <- autodata_nopurch[autodata_nopurch_train_ind,]
+autodata_nopurch_test <- autodata_nopurch[-autodata_nopurch_train_ind,]
+
+autodata_train <- rbind(autodata_purch_train, autodata_nopurch_train)
+autodata_test <- rbind(autodata_purch_test, autodata_nopurch_test)
+```
+
+```{r}
+autodata_train_nogen <- autodata_train %>% 
+  filter(gender == "NULL", age_band != "NULL")
+
+autodata_train_noage <- autodata_train %>% 
+  filter(gender != "NULL", age_band == "NULL")
+
+autodata_train_allvar <- autodata_train %>% 
+  filter(gender != "NULL", age_band != "NULL")
+
+autodata_train_novar <- autodata_train %>% 
+  filter(gender == "NULL", age_band == "NULL")
+
+
+# Testing datasets split
+
+autodata_test_nogen <- autodata_test %>% 
+  filter(gender == "NULL", age_band != "NULL")
+
+autodata_test_noage <- autodata_test %>% 
+  filter(gender != "NULL", age_band == "NULL")
+
+autodata_test_allvar <- autodata_test %>% 
+  filter(gender != "NULL", age_band != "NULL")
+  
+autodata_test_novar <- autodata_test %>% 
+  filter(gender == "NULL", age_band == "NULL")
+```
+
+
+```{r}
+preped_data <- c("autodata_train", "autodata_test")
+save(list = preped_data, file = "./core_data/autodata_prep.Rdata")
+
+preped_data_split <- c("autodata_train_nogen", "autodata_train_noage", "autodata_train_allvar", "autodata_train_novar", "autodata_test_nogen", "autodata_test_noage", "autodata_test_allvar", "autodata_test_novar")
+save(list = preped_data_split, file = "./core_data/autodata_prep_split.Rdata")
+```
+

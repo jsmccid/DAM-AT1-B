@@ -1,0 +1,94 @@
+# Understanding
+
+```{r}
+#NA's
+pot_nas <- c("", " ", "  ", ".", ",", "NaN", "NAN", "nan", "NA", "na", "N/A", "n/a", "NULL", "Null", "null")
+
+# import dataset
+autodata <- read_csv("./core_data/repurchase_training.csv", na = pot_nas)
+
+# Target, age band, gender, model, segment to factor
+autodata$Target <- as.factor(autodata$Target)
+autodata$age_band <- as.factor(autodata$age_band)
+autodata$gender <- as.factor(autodata$gender)
+autodata$car_model <- as.factor(autodata$car_model)
+autodata$car_segment <- as.factor(autodata$car_segment)
+
+#age range to mean
+# ages <- data.frame(age_band = unique(na.omit(autodata$age_band)), age_mid = NA, stringsAsFactors = FALSE)
+# ages[ages$age_band == "1. <25", "age_mid"] <- floor((18+25)/2)
+# ages[ages$age_band == "2. 25 to 34","age_mid"] <- floor((25+34)/2)
+# ages[ages$age_band == "3. 35 to 44","age_mid"] <- floor((35+44)/2)
+# ages[ages$age_band == "4. 45 to 54","age_mid"] <- floor((45+54)/2)
+# ages[ages$age_band == "5. 55 to 64","age_mid"] <- floor((55+64)/2)
+# ages[ages$age_band == "6. 65 to 74","age_mid"] <- floor((5+74)/2)
+# ages[ages$age_band == "7. 75+","age_mid"] <- floor((75+85)/2)
+# 
+# autodata <- merge(autodata, ages, by = "age_band", all.x = TRUE)
+
+autodata$age_band <- as.factor(autodata$age_band)
+```
+
+
+```{r}
+summary(autodata)
+str(autodata)
+
+# total obs 131337
+
+# age band has pulled the form entry line number in
+# some variables need to be converted to categorical
+# the set who have purchased are identified, what if they were to purchase again?
+
+```
+## Variable Quick Check
+```{r}
+#filter for current repurchases
+auto_purchased <- autodata %>% 
+  filter(Target == 1)
+
+auto_nopurch <- autodata %>% 
+  filter(Target != 1)
+
+# 3521 obs have repurchased 2.68%
+
+# filter for entry in age
+auto_aged <- autodata %>%
+  filter(age_band != "NA")
+# 18952 with age band intact 14.44%
+
+# filter for entry in gender
+auto_gender <- autodata %>% 
+  filter(gender != "NA")
+# 62029 with gender intact 47.23%
+
+auto_full <- na.omit(autodata)
+#18306 obs with no missing values 13.94%
+
+auto_target_full <- na.omit(auto_purchased)
+# 194 obs who repurchased without missing values 5.51%
+
+miss <- autodata %>% 
+  select(-age_band, -gender) %>% 
+  na.omit()
+# no missing values in other columns
+```
+
+
+```{r}
+auto_cols <- names(autodata)
+auto_cols <- auto_cols[-(1:2)]
+
+for (clm in auto_cols) {
+  print(ggplot(auto_purchased, aes_string(x = clm)) + geom_bar() + labs(title = paste("purchased",clm, sep = "_")))
+  print(ggplot(auto_nopurch, aes_string(x = clm)) + geom_bar() + labs(title = paste("nopurchase",clm, sep = "_")))
+}
+```
+
+```{r}
+auto_cor <- autodata %>% 
+  select(-ID, -Target, -age_band, -gender, -car_model, -car_segment) %>% 
+  cor()
+corrplot(auto_cor, method = "number")
+```
+
