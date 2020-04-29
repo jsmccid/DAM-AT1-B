@@ -5,16 +5,71 @@ load(file = "./core_data/autodata_prep.Rdata")
 
 ## linear model
 ```{r}
+# standard glm
+# glm(Target ~. -ID, family = "binomial", data = autodata_train)
+
+
+# polynomial of age_of_vehicle & totalmil
+
+
+# glmnet with cross validation
+# x and y split
+ad_train_x <- model.matrix(~. -ID , autodata_train[,-2])
+ad_train_y <- autodata_train$Target
+
+ad_test_glm <- cv.glmnet(ad_train_x, ad_train_y, family = "binomial", nfolds = 10)
+plot(ad_test_glm)
+
+coef(ad_test_glm, s = ad_test_glm$lambda.min)
+summary(ad_test_glm, s = ad_test_glm$lambda.min)
+
+# baseit_test_glm <- ad_test_glm
+# save(baseit_test_glm, file = "./models/baseot_test_glm.Rdata")
+
+pred_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = model.matrix(~. -ID, autodata_test[, -2]),
+                           type = "response",
+                           s = ad_test_glm$lambda.min)
+
+# pred_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = ad_train_x,
+                         #  type = "response",
+                          # s = ad_test_glm$lambda.min)
+
+pr <- pred_ad_test_glm[,1]
+# ROC_AUC
+perf_ad_test_glm <- performance(prediction(pred_ad_test_glm, autodata_test$Target), "tpr", "fpr")
+perf_ad_test_glm_auc <- performance(prediction(pred_ad_test_glm, autodata_test$Target), "auc")
+plot(perf_ad_test_glm)
+str(pred_ad_test_glm[,1])
+test_auc = unlist(slot(perf_ad_test_glm_auc, "y.values"))
+test_auc
+ # as the numbered variables are scaled by variance the relative importance can be taken from coeficients
+
+str(pred_ad_test_glm)
+```
+## Caret GLM
+```{r}
 
 ```
+
 
 ## Tree model
 ```{r}
 
 ```
 
+## Boosted Tree
+```{r}
+
+```
+
 
 ## Tree model split 
+```{r}
+# split dataset
+load(file = "./core_data/autodata_prep_split.Rdata")
+```
+
+
 ```{r}
 ```
 
