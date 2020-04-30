@@ -9,28 +9,36 @@ pot_nas <- c("", " ", "  ", ".", ",", "NaN", "NAN", "nan", "NA", "na", "N/A", "n
 autodata <- read_csv("./core_data/repurchase_training.csv", na = pot_nas)
 
 # Target, age band, gender, model, segment to factor
-autodata$Target <- as.factor(autodata$Target)
+autodata[autodata$Target == 0, "Target"] <- "no"
+autodata[autodata$Target == 1, "Target"] <- "buy"
+autodata$Target <- factor(autodata$Target, levels = c("no","buy"))
 autodata$gender <- as.factor(autodata$gender)
 autodata$car_model <- as.factor(autodata$car_model)
 autodata$car_segment <- as.factor(autodata$car_segment)
 
+# autodata$Target <- relevel(autodata$Target, "1")
+# levels(autodata$Target)
+
+
 str(autodata)
 ```
 
-```{r, eval = FALSE}
+```{r}
 #age range to mean
-ages <- data.frame(age_band = unique(na.omit(autodata$age_band)), age_mid = NA, stringsAsFactors = FALSE)
-ages[ages$age_band == "1. <25", "age_mid"] <- floor((18+25)/2)
-ages[ages$age_band == "2. 25 to 34","age_mid"] <- floor((25+34)/2)
-ages[ages$age_band == "3. 35 to 44","age_mid"] <- floor((35+44)/2)
-ages[ages$age_band == "4. 45 to 54","age_mid"] <- floor((45+54)/2)
-ages[ages$age_band == "5. 55 to 64","age_mid"] <- floor((55+64)/2)
-ages[ages$age_band == "6. 65 to 74","age_mid"] <- floor((5+74)/2)
-ages[ages$age_band == "7. 75+","age_mid"] <- floor((75+85)/2)
+autodata[autodata$age_band == "1. <25", "age_band"] <- paste("groupmedian",floor((18+25)/2),sep = "")
+autodata[autodata$age_band == "2. 25 to 34","age_band"] <- paste("groupmedian",floor((25+34)/2),sep = "")
+autodata[autodata$age_band == "3. 35 to 44","age_band"] <- paste("groupmedian",floor((35+44)/2),sep = "")
+autodata[autodata$age_band == "4. 45 to 54","age_band"] <- paste("groupmedian",floor((45+54)/2),sep = "")
+autodata[autodata$age_band == "5. 55 to 64","age_band"] <- paste("groupmedian",floor((55+64)/2),sep = "")
+autodata[autodata$age_band == "6. 65 to 74","age_band"] <- paste("groupmedian",floor((5+74)/2),sep = "")
+autodata[autodata$age_band == "7. 75+","age_band"] <- paste("groupmedian",floor((75+85)/2),sep = "")
 
-autodata <- merge(autodata, ages, by = "age_band", all.x = TRUE)
+unique(autodata$age_band)
 
-autodata$age_band <- as.factor(autodata$age_band)
+autodata$age_band <- factor(autodata$age_band, levels = c("groupmedian21", "groupmedian29", "groupmedian39", "NULL", "groupmedian49", "groupmedian59", "groupmedian80"))
+
+str(autodata)
+
 ```
 
 ```{r}

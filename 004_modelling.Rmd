@@ -14,7 +14,7 @@ load(file = "./core_data/autodata_prep.Rdata")
 
 # glmnet with cross validation
 # x and y split
-ad_train_x <- model.matrix(~. -ID , autodata_train[,-2])
+ad_train_x <- model.matrix(~. -ID + annualised_mileage*age_of_vehicle_years , autodata_train[,-2])
 ad_train_y <- autodata_train$Target
 
 ad_test_glm <- cv.glmnet(ad_train_x, ad_train_y, family = "binomial", nfolds = 10)
@@ -26,15 +26,26 @@ summary(ad_test_glm, s = ad_test_glm$lambda.min)
 # baseit_test_glm <- ad_test_glm
 # save(baseit_test_glm, file = "./models/baseot_test_glm.Rdata")
 
-pred_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = model.matrix(~. -ID, autodata_test[, -2]),
+pred_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = model.matrix(~. -ID+ annualised_mileage*age_of_vehicle_years, autodata_test[, -2]),
                            type = "response",
+                           s = ad_test_glm$lambda.min)
+
+pred_class_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = model.matrix(~. -ID+ annualised_mileage*age_of_vehicle_years, autodata_test[, -2]),
+                           type = "class",
                            s = ad_test_glm$lambda.min)
 
 # pred_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = ad_train_x,
                          #  type = "response",
                           # s = ad_test_glm$lambda.min)
 
-pr <- pred_ad_test_glm[,1]
+pred_test <- data.frame(Target = autodata_test$Target, preds = pred_class_ad_test_glm[,1])
+
+pred_test_good <- pred_test %>% 
+  filter(Target == "buy")
+
+confusionMatrix(data = pred_test$preds, reference = pred_test$Target, mode = "everything", positive = "buy")
+
+pr <- pred_ad_test_glm
 # ROC_AUC
 perf_ad_test_glm <- performance(prediction(pred_ad_test_glm, autodata_test$Target), "tpr", "fpr")
 perf_ad_test_glm_auc <- performance(prediction(pred_ad_test_glm, autodata_test$Target), "auc")
@@ -42,7 +53,7 @@ plot(perf_ad_test_glm)
 str(pred_ad_test_glm[,1])
 test_auc = unlist(slot(perf_ad_test_glm_auc, "y.values"))
 test_auc
- # as the numbered variables are scaled by variance the relative importance can be taken from coeficients
+# as the numbered variables are scaled by variance the relative importance can be taken from coeficients
 
 str(pred_ad_test_glm)
 ```
@@ -58,10 +69,57 @@ str(pred_ad_test_glm)
 ```
 
 ## Boosted Tree
+
 ```{r}
 
-```
 
+
+ad_train_x <- model.matrix(~. -ID + annualised_mileage*age_of_vehicle_years , autodata_train[,-2])
+ad_train_y <- autodata_train$Target
+
+
+autodata_train <- as.data.frame(autodata_train)
+
+set.seed(85)
+
+#parralellisation inbuilt for xgboost tree
+
+#controller
+
+xgb_control <- trainControl(method = "repeatedcv",
+                            number = 10,
+                            repeats = 5,
+                            search = "random",
+                            summaryFunction = twoClassSummary,
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = TRUE,
+                            sampling = NULL) 
+# could be worth changing sampling
+# selectionFunction
+# xgboost training grid
+  
+# not using scale_pos_weights due to https://xgboost.readthedocs.io/en/latest/tutorials/param_tuning.html
+ 
+start <- proc.time()
+
+autodata_xgbmodel <- train(x = ad_train_x,
+                           y = ad_train_y,
+                           method = "xgbTree", 
+                           # tree_method = "exact",
+                           # objective = "binary:logistic",
+                           # eval_metric = "auc",
+                           trControl = xgb_control,
+                           verbose = TRUE,
+                           metric = "ROC",
+                           # maximize = TRUE,
+                           tuneLength= 5)
+
+
+end <- proc.time() - start
+end_time <- as.numeric((paste(end[3])))
+end_time
+```
 
 ## Tree model split 
 ```{r}
@@ -79,3 +137,59 @@ load(file = "./core_data/autodata_prep_split.Rdata")
 ## Tree model age filled
 
 ## Tree model with filled variables
+
+
+```{r, eval = FALSE}
+
+# getting tree to work
+
+sparse_matrix <- sparse.model.matrix(Target ~., data = autodata_train)[,-1]
+X_train_dmat = xgb.DMatrix(sparse_matrix, label = autodata_train$Target)
+
+autodata_train <- as.data.frame(autodata_train)
+
+set.seed(85)
+
+#parralellisation 
+
+#cluster
+#registerDoParallel(cores=8)
+
+#controller
+
+xgb_control <- trainControl(method = "cv",
+                            number = 2,
+                            #repeats = 5,
+                            search = "random",
+                            summaryFunction = twoClassSummary,
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = TRUE,
+                            sampling = NULL) 
+# could be worth changing sampling
+# selectionFunction
+# xgboost training grid
+  
+# not using scale_pos_weights due to https://xgboost.readthedocs.io/en/latest/tutorials/param_tuning.html
+ 
+start <- proc.time()
+
+autodata_xgbmodel <- train(Target ~.,
+                           data = autodata_train,
+                           method = "xgbTree", 
+                           # tree_method = "exact",
+                           # objective = "binary:logistic",
+                           # eval_metric = "auc",
+                           trControl = xgb_control,
+                           verbose = TRUE,
+                           metric = "ROC",
+                           # maximize = TRUE,
+                           tuneLength= 5)
+
+
+end <- proc.time() - start
+end_time <- as.numeric((paste(end[3])))
+end_time
+
+#adaptive resampling
+```

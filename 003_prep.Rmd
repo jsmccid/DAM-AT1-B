@@ -4,7 +4,7 @@ load(file = "./core_data/autodata_clean.Rdata")
 ```
 
 
-```{r}
+```{r, eval = FALSE}
 # total miles
 autodata_clean$totalmil <- autodata_clean$age_of_vehicle_years * autodata_clean$annualised_mileage
 
@@ -22,6 +22,11 @@ autodata_clean$crel <- (autodata_clean$sched_serv_warr / autodata_clean$non_sche
 # service cost
 autodata_clean$scost <-  autodata_clean$total_paid_services / autodata_clean$total_services
 
+
+```
+
+
+```{r}
 # how to create a variable that described car age is between both total miles and age in years, a car can be old because it has high miles or it can be old because it is old in age as a metric
 
 # not linear? age^2?
@@ -31,10 +36,10 @@ autodata_clean$scost <-  autodata_clean$total_paid_services / autodata_clean$tot
 ```{r}
 # test and train sets
 autodata_purch <- autodata_clean %>% 
-  filter(Target == 1)
+  filter(Target == "buy")
 
 autodata_nopurch <- autodata_clean %>% 
-  filter(Target != 1)
+  filter(Target != "buy")
 
 #stratified sets
 
