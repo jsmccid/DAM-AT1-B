@@ -11,7 +11,7 @@ autodata <- read_csv("./core_data/repurchase_training.csv", na = pot_nas)
 # Target, age band, gender, model, segment to factor
 autodata[autodata$Target == 0, "Target"] <- "no"
 autodata[autodata$Target == 1, "Target"] <- "buy"
-autodata$Target <- factor(autodata$Target, levels = c("no","buy"))
+autodata$Target <- factor(autodata$Target, levels = c("buy","no"))
 autodata$gender <- as.factor(autodata$gender)
 autodata$car_model <- as.factor(autodata$car_model)
 autodata$car_segment <- as.factor(autodata$car_segment)

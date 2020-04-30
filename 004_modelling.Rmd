@@ -73,7 +73,7 @@ str(pred_ad_test_glm)
 ```{r}
 
 
-
+autodata_train
 ad_train_x <- model.matrix(~. -ID + annualised_mileage*age_of_vehicle_years , autodata_train[,-2])
 ad_train_y <- autodata_train$Target
 
@@ -114,11 +114,44 @@ autodata_xgbmodel <- train(x = ad_train_x,
                            metric = "ROC",
                            # maximize = TRUE,
                            tuneLength= 5)
+                           #nthread = 1
 
 
 end <- proc.time() - start
 end_time <- as.numeric((paste(end[3])))
 end_time
+
+print(autodata_xgbmodel)
+```
+```{r}
+test_matrix <- model.matrix(~. -ID+ annualised_mileage*age_of_vehicle_years, autodata_test[, -2])
+
+
+pred_ad_test_boost <- predict(autodata_xgbmodel, test_matrix, type = "prob")
+
+pred_class_ad_test_boost <- predict(autodata_xgbmodel, test_matrix, type = "raw")
+
+
+
+
+
+pred_test_boost <- data.frame(Target = autodata_test$Target, preds = pred_class_ad_test_boost)
+
+# pred_test_good <- pred_test_boost %>% 
+#   filter(Target == "buy")
+
+confusionMatrix(data = pred_test_boost$preds, reference = pred_test_boost$Target, mode = "everything", positive = "buy")
+
+# ROC_AUC
+perf_ad_test_boost <- performance(prediction(pred_ad_test_boost[,2], autodata_test$Target), "tpr", "fpr")
+perf_ad_test_boost_auc <- performance(prediction(pred_ad_test_boost[,2], autodata_test$Target), "auc")
+plot(perf_ad_test_boost)
+str(pred_ad_test_boost[,1])
+test_auc_boost = unlist(slot(perf_ad_test_boost_auc, "y.values"))
+test_auc_boost
+# as the numbered variables are scaled by variance the relative importance can be taken from coeficients
+
+str(pred_ad_test_boost)
 ```
 
 ## Tree model split 
