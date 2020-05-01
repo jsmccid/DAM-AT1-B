@@ -182,14 +182,14 @@ str(pred_ad_test_boost)
 
 xgb_adapt <- trainControl(method = "adaptive_cv",
                             number = 10,
-                            repeats = 5,
+                            repeats = 10,
                             search = "random",
                             summaryFunction = twoClassSummary,
                             classProbs = TRUE, #ROC AUC
                             allowParallel = TRUE,
                             verboseIter = FALSE,
                             sampling = NULL,
-                            adaptive = list(min =8, alpha = 0.05, 
+                            adaptive = list(min =15, alpha = 0.05, 
                                         method = "BT", complete = TRUE)) 
 
 # could be worth changing sampling
@@ -210,7 +210,7 @@ autodata_xgbmodel_adapt <- train(x = ad_train_x,
                            verbose = FALSE,
                            metric = "ROC",
                            maximize = TRUE,
-                           tuneLength= 50,
+                           tuneLength= 200,
                            nthread = 3)
 
 
@@ -223,9 +223,16 @@ end_time
 
 stopCluster(clust)
 
-# save(autodata_xgbmodel, file = "./models/firstboost.Rdata")
+# save(autodata_xgbmodel_adapt, file = "./models/adaptboost2.Rdata")
 
-print(autodata_xgbmodel)
+print(autodata_xgbmodel_adapt)
+
+#ROC was used to select the optimal model using the largest value.
+# The final values used for the model were nrounds = 786, max_depth
+#  = 9, eta = 0.05639382, gamma = 3.803482, colsample_bytree
+#  = 0.4693516, min_child_weight = 6 and subsample = 0.7489751.
+
+# same result for adaptive
 ```
 
 ## Tree model split 
