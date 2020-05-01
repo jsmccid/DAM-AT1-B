@@ -84,6 +84,9 @@ set.seed(85)
 
 #parralellisation inbuilt for xgboost tree
 
+ clust <- makePSOCKcluster(5)
+ registerDoParallel(clust)
+
 #controller
 
 xgb_control <- trainControl(method = "repeatedcv",
@@ -93,7 +96,7 @@ xgb_control <- trainControl(method = "repeatedcv",
                             summaryFunction = twoClassSummary,
                             classProbs = TRUE, #ROC AUC
                             allowParallel = TRUE,
-                            verboseIter = TRUE,
+                            verboseIter = FALSE,
                             sampling = NULL) 
 # could be worth changing sampling
 # selectionFunction
@@ -106,23 +109,38 @@ start <- proc.time()
 autodata_xgbmodel <- train(x = ad_train_x,
                            y = ad_train_y,
                            method = "xgbTree", 
-                           # tree_method = "exact",
-                           # objective = "binary:logistic",
-                           # eval_metric = "auc",
+                           tree_method = "exact",
+                          # objective = "binary:logistic",
+                           eval_metric = "auc",
                            trControl = xgb_control,
-                           verbose = TRUE,
+                           verbose = FALSE,
                            metric = "ROC",
-                           # maximize = TRUE,
-                           tuneLength= 5)
-                           #nthread = 1
+                           maximize = TRUE,
+                           tuneLength= 50,
+                           nthread = 3)
 
+
+
+                           
 
 end <- proc.time() - start
 end_time <- as.numeric((paste(end[3])))
 end_time
 
+stopCluster(clust)
+
+ save(autodata_xgbmodel, file = "./models/betterboostboost.Rdata")
+
 print(autodata_xgbmodel)
+
+
+# The final values used for the model were nrounds = 786, max_depth
+#  = 9, eta = 0.05639382, gamma = 3.803482, colsample_bytree
+#  = 0.4693516, min_child_weight = 6 and subsample = 0.7489751.
 ```
+
+
+
 ```{r}
 test_matrix <- model.matrix(~. -ID+ annualised_mileage*age_of_vehicle_years, autodata_test[, -2])
 
@@ -152,6 +170,62 @@ test_auc_boost
 # as the numbered variables are scaled by variance the relative importance can be taken from coeficients
 
 str(pred_ad_test_boost)
+```
+
+## adaptive resampling
+
+```{r}
+ clust <- makePSOCKcluster(5)
+ registerDoParallel(clust)
+
+#controller
+
+xgb_adapt <- trainControl(method = "adaptive_cv",
+                            number = 10,
+                            repeats = 5,
+                            search = "random",
+                            summaryFunction = twoClassSummary,
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = FALSE,
+                            sampling = NULL,
+                            adaptive = list(min =8, alpha = 0.05, 
+                                        method = "BT", complete = TRUE)) 
+
+# could be worth changing sampling
+# selectionFunction
+# xgboost training grid
+  
+# not using scale_pos_weights due to https://xgboost.readthedocs.io/en/latest/tutorials/param_tuning.html
+ 
+start <- proc.time()
+
+autodata_xgbmodel_adapt <- train(x = ad_train_x,
+                           y = ad_train_y,
+                           method = "xgbTree", 
+                           tree_method = "exact",
+                          # objective = "binary:logistic",
+                           eval_metric = "auc",
+                           trControl = xgb_control,
+                           verbose = FALSE,
+                           metric = "ROC",
+                           maximize = TRUE,
+                           tuneLength= 50,
+                           nthread = 3)
+
+
+
+                           
+
+end <- proc.time() - start
+end_time <- as.numeric((paste(end[3])))
+end_time
+
+stopCluster(clust)
+
+# save(autodata_xgbmodel, file = "./models/firstboost.Rdata")
+
+print(autodata_xgbmodel)
 ```
 
 ## Tree model split 
