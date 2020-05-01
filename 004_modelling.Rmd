@@ -334,15 +334,15 @@ set.seed(85)
 # controller for boost
 
 xcsplit <- trainControl(method = "adaptive_cv",
-                            number = 6,
+                            number = 8,
                             repeats = 3,
                             search = "random",
-                            summaryFunction = twoClassSummary,
+                            summaryFunction = twoClassSummary, # prSummary twoClassSummary
                             classProbs = TRUE, #ROC AUC
                             allowParallel = TRUE,
                             verboseIter = TRUE,
                             sampling = NULL,
-                            adaptive = list(min =6, alpha = 0.05, 
+                            adaptive = list(min =5, alpha = 0.05, 
                                         method = "BT", complete = TRUE)) 
 
 
@@ -375,9 +375,9 @@ for (set in splits) {
                            eval_metric = "auc",
                            trControl = xcsplit,
                            verbose = TRUE,
-                           metric = "ROC",
+                           metric = "ROC", #AUC ROC
                            maximize = TRUE,
-                           tuneLength= 20)
+                           tuneLength= 25)
 
   end <- proc.time() - start
   end_time <- as.numeric((paste(end[3])))
@@ -405,18 +405,118 @@ for (set in splits) {
   
   # save all outputs
   
-  listout <- list(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
+  listout[] <- list(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
   
   assign(paste(set, "output", sep = "_"), listout)
 }
 
+splitmodels <- c("allvar_output", "novar_output", "nogen_ouput", "noage_output")
 
-
+save(list = splitmodels, file = "./models/splitmodelgood.Rdata")
 
 ```
 
 
 ```{r}
+
+combined_preds_split_boost <- novar_output$pred
+combined_preds_split_boost <- rbind(combined_preds_split_boost, allvar_output$pred, noage_output$pred, nogen_output$pred)
+
+combined_preds_split_boost$ease <- "no" 
+combined_preds_split_boost[combined_preds_split_boost$probs >= 0.25, "ease"] <- "buy"
+combined_preds_split_boost$ease <- factor(combined_preds_split_boost$ease, levels = c("buy", "no"))
+
+combined_preds_split_boost_cm <- confusionMatrix(data = combined_preds_split_boost$ease, reference = combined_preds_split_boost$Target, mode = "everything", positive = "buy")
+
+
+splitmodels <- c("allvar_output", "novar_output", "nogen_output", "noage_output", "combined_preds_split_boost", "combined_preds_split_boost_cm")
+
+save(list = splitmodels, file = "./models/splitmodelgood.Rdata")
+```
+
+#random forrest
+
+```{r}
+set.seed(85)
+
+registerDoParallel(cores = 6)
+
+# controller for boost
+
+rfcontrol <- trainControl(method = "adaptive_cv",
+                            number = 2,
+                            repeats = 2,
+                            search = "random",
+                            summaryFunction = twoClassSummary, # prSummary twoClassSummary
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = TRUE,
+                            sampling = NULL,
+                            adaptive = list(min =2, alpha = 0.05, 
+                                        method = "BT", complete = TRUE)) 
+
+
+ 
+  ########
+  # create test & train 
+  
+  train <- autodata_exp_train
+  test <- autodata_exp_test
+  
+  train_x <- model.matrix(~. -ID, train[,-2])
+  train_y <- train$Target
+  
+  test_x <- model.matrix(~. -ID, test[, -2])
+  test_y <- test$Target
+  
+
+  ######
+  # train model
+  
+  # timer
+ 
+  start <- proc.time()
+
+  rfmodel <- train(x = train_x,
+                           y = train_y,
+                           method = "parRF", 
+                           ntree = 1000,
+                           eval_metric = "auc",
+                           trControl = rfcontrol,
+                           verbose = TRUE,
+                           metric = "ROC", #AUC ROC
+                           maximize = TRUE,
+                           tuneLength= 2)
+
+  end <- proc.time() - start
+  end_time <- as.numeric((paste(end[3])))
+  
+  ######
+  # evaluate model
+  
+  # predictions
+
+  pred_prob <- predict(rfmodel, test_x, type = "prob")
+
+  pred_class <- predict(rfmodel, test_x, type = "raw")
+
+  pred <- data.frame(Target = test_y, preds = pred_class, probs = pred_prob$buy)
+
+  # confusion matrix
+  
+  confusionm <- confusionMatrix(data = pred$preds, reference = test_y, mode = "everything", positive = "buy")
+
+  # performance and ROC_AUC
+  
+  perf <- performance(prediction(pred_prob[,2], test_y), "tpr", "fpr")
+  perf_auc <- performance(prediction(pred_prob[,2], test_y), "auc")
+  auc <- unlist(slot(perf_auc, "y.values"))
+  
+  # save all outputs
+  listout <- list()
+  listout <- llist(rfmodel, end_time, pred, confusionm, perf, auc)
+  
+  assign("rf_out", listout)
 ```
 
 
