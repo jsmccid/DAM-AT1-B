@@ -333,16 +333,16 @@ set.seed(85)
 
 # controller for boost
 
-xgb_control_exp <- trainControl(method = "adaptive_cv",
-                            number = 2,
-                            repeats = 2,
+xcsplit <- trainControl(method = "adaptive_cv",
+                            number = 6,
+                            repeats = 3,
                             search = "random",
                             summaryFunction = twoClassSummary,
                             classProbs = TRUE, #ROC AUC
                             allowParallel = TRUE,
-                            verboseIter = FALSE,
+                            verboseIter = TRUE,
                             sampling = NULL,
-                            adaptive = list(min =15, alpha = 0.05, 
+                            adaptive = list(min =6, alpha = 0.05, 
                                         method = "BT", complete = TRUE)) 
 
 
@@ -373,11 +373,11 @@ for (set in splits) {
                            method = "xgbTree", 
                            tree_method = "exact",
                            eval_metric = "auc",
-                           trControl = xgb_control_exp,
+                           trControl = xcsplit,
                            verbose = TRUE,
                            metric = "ROC",
                            maximize = TRUE,
-                           tuneLength= 2)
+                           tuneLength= 20)
 
   end <- proc.time() - start
   end_time <- as.numeric((paste(end[3])))
@@ -400,12 +400,12 @@ for (set in splits) {
   # performance and ROC_AUC
   
   perf <- performance(prediction(pred_prob[,2], test_y), "tpr", "fpr")
-  perf_auc <- performance(prediction(pred_ad_test_boost_exp[,2], autodata_exp_test$Target), "auc")
-  auc <- unlist(slot(perf_ad_test_boost_auc_exp, "y.values"))
+  perf_auc <- performance(prediction(pred_prob[,2], test_y), "auc")
+  auc <- unlist(slot(perf_auc, "y.values"))
   
   # save all outputs
   
-  listout <- llist(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
+  listout <- list(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
   
   assign(paste(set, "output", sep = "_"), listout)
 }
