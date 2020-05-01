@@ -3,35 +3,7 @@
 load(file = "./core_data/autodata_clean.Rdata")
 ```
 
-
-```{r, eval = FALSE}
-# total miles
-autodata_clean$totalmil <- autodata_clean$age_of_vehicle_years * autodata_clean$annualised_mileage
-
-# loyalty
-autodata_clean$loyalty <- autodata_clean$
-
-# reliability
-autodata_clean$reliability <- autodata_clean$non_sched_serv_warr / autodata_clean$age_of_vehicle_years
-
-#complex reliability
-autodata_clean$crel <- (autodata_clean$sched_serv_warr / autodata_clean$non_sched_serv_warr) / autodata_clean$age_of_vehicle_years
-
-# maintainence consistency
-
-# service cost
-autodata_clean$scost <-  autodata_clean$total_paid_services / autodata_clean$total_services
-
-
-```
-
-
-```{r}
-# how to create a variable that described car age is between both total miles and age in years, a car can be old because it has high miles or it can be old because it is old in age as a metric
-
-# not linear? age^2?
-```
-
+## programatic
 
 ```{r}
 # test and train sets
@@ -55,36 +27,146 @@ autodata_nopurch_test <- autodata_nopurch[-autodata_nopurch_train_ind,]
 
 autodata_train <- rbind(autodata_purch_train, autodata_nopurch_train)
 autodata_test <- rbind(autodata_purch_test, autodata_nopurch_test)
+
+#unmodified test & train complete
 ```
 
 ```{r}
-autodata_train_nogen <- autodata_train %>% 
+
+#simpler extra parameters
+
+autodata_exparam <- autodata_clean
+
+# total miles
+autodata_exparam$totalmil <- autodata_exparam$age_of_vehicle_years * autodata_exparam$annualised_mileage
+
+# loyalty total
+autodata_exparam$loyalty <- autodata_exparam$num_serv_dealer_purchased / autodata_exparam$total_services
+
+# reliability
+autodata_exparam$reliability <- autodata_exparam$non_sched_serv_warr / autodata_exparam$age_of_vehicle_years
+
+# service cost
+autodata_exparam$scost <-  autodata_exparam$total_paid_services / autodata_exparam$total_services
+
+# non-dealer services
+autodata_exparam$nondeal <- autodata_exparam$total_services - autodata_exparam$num_serv_dealer_purchased
+
+```
+
+```{r}
+# how to create a variable that described car age is between both total miles and age in years, a car can be old because it has high miles or it can be old because it is old in age as a metric
+
+# not linear? age^2? relative wear?
+
+#see below
+```
+
+```{r}
+# wage https://www.abs.gov.au/ausstats/abs@.nsf/mf/6306.0/
+# unused
+```
+
+```{r}
+# test and train sets wiht extra parameters
+autodata_purch <- autodata_exparam %>% 
+  filter(Target == "buy")
+
+autodata_nopurch <- autodata_exparam %>% 
+  filter(Target != "buy")
+
+#stratified sets
+
+set.seed(85)
+
+autodata_purch_train_ind <- sample(seq_len(nrow(autodata_purch)), floor(nrow(autodata_purch)*0.75),replace = FALSE)
+autodata_purch_train <- autodata_purch[autodata_purch_train_ind,]
+autodata_purch_test <- autodata_purch[-autodata_purch_train_ind,]
+
+autodata_nopurch_train_ind <- sample(seq_len(nrow(autodata_nopurch)),floor(nrow(autodata_nopurch)*0.75), replace = FALSE)
+autodata_nopurch_train <- autodata_nopurch[autodata_nopurch_train_ind,]
+autodata_nopurch_test <- autodata_nopurch[-autodata_nopurch_train_ind,]
+
+autodata_exp_train <- rbind(autodata_purch_train, autodata_nopurch_train)
+autodata_exp_test <- rbind(autodata_purch_test, autodata_nopurch_test)
+```
+
+```{r}
+#split extra parameter dataset
+
+autodata_train_nogen <- autodata_exp_train %>% 
   filter(gender == "NULL", age_band != "NULL")
 
-autodata_train_noage <- autodata_train %>% 
+autodata_train_noage <- autodata_exp_train %>% 
   filter(gender != "NULL", age_band == "NULL")
 
-autodata_train_allvar <- autodata_train %>% 
+autodata_train_allvar <- autodata_exp_train %>% 
   filter(gender != "NULL", age_band != "NULL")
 
-autodata_train_novar <- autodata_train %>% 
+autodata_train_novar <- autodata_exp_train %>% 
   filter(gender == "NULL", age_band == "NULL")
+
+# train split list
+# 89train_exp_split <- llist(autodata_train_nogen, autodata_train_noage, autodata_train_allvar, autodata_train_novar)
 
 
 # Testing datasets split
 
-autodata_test_nogen <- autodata_test %>% 
+autodata_test_nogen <- autodata_exp_test %>% 
   filter(gender == "NULL", age_band != "NULL")
 
-autodata_test_noage <- autodata_test %>% 
+autodata_test_noage <- autodata_exp_test %>% 
   filter(gender != "NULL", age_band == "NULL")
 
-autodata_test_allvar <- autodata_test %>% 
+autodata_test_allvar <- autodata_exp_test %>% 
   filter(gender != "NULL", age_band != "NULL")
   
-autodata_test_novar <- autodata_test %>% 
+autodata_test_novar <- autodata_exp_test %>% 
   filter(gender == "NULL", age_band == "NULL")
 
+# test split list
+# test_exp_split <- llist(autodata_test_nogen, autodata_test_noage, autodata_test_allvar, autodata_test_novar)
+
+```
+
+
+
+```{r} 
+#list of extra param dataset names
+expdata <- c("autodata_exp_train", "autodata_exp_test", "autodata_train_nogen", "autodata_train_noage", "autodata_train_allvar", "autodata_train_novar", "autodata_test_nogen", "autodata_test_noage", "autodata_test_allvar", "autodata_test_novar") 
+
+# age metric (wear) is within set (no leakage) 
+
+for(df in expdata){
+ data <- get(df)
+ 
+ #relativ wear
+ 
+  mmil <- mean(data[data$Target == "buy", "totalmil", drop = TRUE])
+  mage <- mean(data[data$Target == "buy", "age_of_vehicle_years", drop = TRUE])
+  mwear <- mmil* mage
+  data$wear <- (data$totalmil * data$age_of_vehicle_years) / mwear
+  
+# complex reliability based on wear
+data$crel <- data$non_sched_serv_warr / data$wear
+
+# maintainence consistency based on wear
+data$maincons <- data$wear / data$total_services
+
+# wear till service
+data$nextserv <- data$maincons - ((data$wear/data$age_of_vehicle_years/12)*(data$mth_since_last_serv))
+  assign(df, data)
+}
+
+```
+
+```{r}
+#check correlation
+
+auto_cor <- autodata_exp_train %>% 
+  select(-ID, -Target, -age_band, -gender, -car_model, -car_segment) %>% 
+  cor()
+corrplot(auto_cor, method = "number")
 ```
 
 
@@ -92,7 +174,6 @@ autodata_test_novar <- autodata_test %>%
 preped_data <- c("autodata_train", "autodata_test")
 save(list = preped_data, file = "./core_data/autodata_prep.Rdata")
 
-preped_data_split <- c("autodata_train_nogen", "autodata_train_noage", "autodata_train_allvar", "autodata_train_novar", "autodata_test_nogen", "autodata_test_noage", "autodata_test_allvar", "autodata_test_novar")
-save(list = preped_data_split, file = "./core_data/autodata_prep_split.Rdata")
+save(list = expdata, file = "./core_data/extra_param_data.Rdata")
 ```
 

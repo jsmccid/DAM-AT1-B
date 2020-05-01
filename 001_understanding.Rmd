@@ -91,4 +91,13 @@ auto_cor <- autodata %>%
   cor()
 corrplot(auto_cor, method = "number")
 ```
+## oldness of purchased vehicles (for prep)
+
+```{r}
+mean_age <- mean(autodata[autodata$Target == 1, "age_of_vehicle_years", drop = "TRUE"])
+mean_age
+autodata$total_km <- autodata$age_of_vehicle_years * autodata$annualised_mileage
+meantotalkm <- mean(autodata[autodata$Target == 1, "total_km", drop = "TRUE"])
+meantotalkm
+```
 

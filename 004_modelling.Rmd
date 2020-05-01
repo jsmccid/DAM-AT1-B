@@ -1,6 +1,7 @@
 # Modelling
 ```{r}
 load(file = "./core_data/autodata_prep.Rdata")
+load(file = "./core_data/extra_param_data.Rdata")
 ```
 
 ## linear model
@@ -45,7 +46,6 @@ pred_test_good <- pred_test %>%
 
 confusionMatrix(data = pred_test$preds, reference = pred_test$Target, mode = "everything", positive = "buy")
 
-pr <- pred_ad_test_glm
 # ROC_AUC
 perf_ad_test_glm <- performance(prediction(pred_ad_test_glm, autodata_test$Target), "tpr", "fpr")
 perf_ad_test_glm_auc <- performance(prediction(pred_ad_test_glm, autodata_test$Target), "auc")
@@ -57,6 +57,58 @@ test_auc
 
 str(pred_ad_test_glm)
 ```
+### linear model with complexity
+
+```{r}
+
+# standard glm with complex
+# glm(Target ~. -ID, family = "binomial", data = autodata_exp_train)
+
+
+# glmnet with cross validation
+# x and y split
+ad_train_x <- model.matrix(~. -ID, autodata_exp_train[,-2])
+ad_train_y <- autodata_exp_train$Target
+
+ad_exp_test_glm <- cv.glmnet(ad_train_x, ad_train_y, family = "binomial", nfolds = 10)
+plot(ad_exp_test_glm)
+
+coef(ad_exp_test_glm, s = ad_exp_test_glm$lambda.min)
+summary(ad_exp_test_glm, s = ad_exp_test_glm$lambda.min)
+
+# baseit_test_glm <- ad_test_glm
+# save(baseit_test_glm, file = "./models/baseot_test_glm.Rdata")
+
+pred_ad_test_glm <- predict(ad_exp_test_glm$glmnet.fit, newx = model.matrix(~. -ID, autodata_exp_test[, -2]),
+                           type = "response",
+                           s = ad_exp_test_glm$lambda.min)
+
+pred_class_ad_test_glm <- predict(ad_exp_test_glm$glmnet.fit, newx = model.matrix(~. -ID, autodata_exp_test[, -2]),
+                           type = "class",
+                           s = ad_exp_test_glm$lambda.min)
+
+# pred_ad_test_glm <- predict(ad_test_glm$glmnet.fit, newx = ad_train_x,
+                         #  type = "response",
+                          # s = ad_test_glm$lambda.min)
+
+pred_test <- data.frame(Target = autodata_exp_test$Target, preds = pred_class_ad_test_glm[,1])
+
+conf_glm_exp <- confusionMatrix(data = pred_test$preds, reference = pred_test$Target, mode = "everything", positive = "buy")
+
+conf_glm_exp
+
+# ROC_AUC
+perf_ad_test_glm_exp <- performance(prediction(pred_ad_test_glm, autodata_exp_test$Target), "tpr", "fpr")
+perf_ad_test_glm_auc_exp <- performance(prediction(pred_ad_test_glm, autodata_exp_test$Target), "auc")
+plot(perf_ad_test_glm_exp)
+str(pred_ad_test_glm_exp[,1])
+test_auc_glm_exp = unlist(slot(perf_ad_test_glm_auc_exp, "y.values"))
+test_auc_glm_exp
+# as the numbered variables are scaled by variance the relative importance can be taken from coeficients
+
+str(pred_ad_test_glm)
+```
+
 ## Caret GLM
 ```{r}
 
@@ -154,10 +206,213 @@ test_auc_boost
 str(pred_ad_test_boost)
 ```
 
+
+```{r}
+test_matrix <- model.matrix(~. -ID, autodata_test[, -2])
+
+
+pred_ad_test_boost <- predict(autodata_xgbmodel, test_matrix, type = "prob")
+
+pred_class_ad_test_boost <- predict(autodata_xgbmodel, test_matrix, type = "raw")
+
+
+
+
+
+pred_test_boost <- data.frame(Target = autodata_test$Target, preds = pred_class_ad_test_boost)
+
+# pred_test_good <- pred_test_boost %>% 
+#   filter(Target == "buy")
+
+confusionMatrix(data = pred_test_boost$preds, reference = pred_test_boost_$Target, mode = "everything", positive = "buy")
+
+# ROC_AUC
+perf_ad_test_boost <- performance(prediction(pred_ad_test_boost[,2], autodata_test$Target), "tpr", "fpr")
+perf_ad_test_boost_auc <- performance(prediction(pred_ad_test_boost[,2], autodata_test$Target), "auc")
+plot(perf_ad_test_boost)
+str(pred_ad_test_boost[,1])
+test_auc_boost = unlist(slot(perf_ad_test_boost_auc, "y.values"))
+test_auc_boost
+# as the numbered variables are scaled by variance the relative importance can be taken from coeficients
+
+str(pred_ad_test_boost)
+```
+
+# complex tree
+```{r}
+
+
+autodata_train
+ad_train_x <- model.matrix(~. -ID, autodata_exp_train[,-2])
+ad_train_y <- autodata_exp_train$Target
+
+set.seed(85)
+
+#parralellisation inbuilt for xgboost tree
+
+#controller
+
+xgb_control_exp <- trainControl(method = "repeatedcv",
+                            number = 2,
+                            repeats = 2,
+                            search = "random",
+                            summaryFunction = twoClassSummary,
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = TRUE,
+                            sampling = NULL) 
+# could be worth changing sampling
+# selectionFunction
+# xgboost training grid
+  
+# not using scale_pos_weights due to https://xgboost.readthedocs.io/en/latest/tutorials/param_tuning.html
+ 
+start <- proc.time()
+
+autodata_xgbmodel_exp <- train(x = ad_train_x,
+                           y = ad_train_y,
+                           method = "xgbTree", 
+                           # tree_method = "exact",
+                           # objective = "binary:logistic",
+                           # eval_metric = "auc",
+                           trControl = xgb_control_exp,
+                           verbose = TRUE,
+                           metric = "ROC",
+                           # maximize = TRUE,
+                           tuneLength= 2)
+                           #nthread = 1
+
+
+end <- proc.time() - start
+end_time <- as.numeric((paste(end[3])))
+end_time
+
+print(autodata_xgbmodel_exp)
+```
+```{r}
+test_matrix <- model.matrix(~. -ID, autodata_exp_test[, -2])
+
+
+pred_ad_test_boost_exp <- predict(autodata_xgbmodel_exp, test_matrix, type = "prob")
+
+pred_class_ad_test_boost_exp <- predict(autodata_xgbmodel_exp, test_matrix, type = "raw")
+
+
+
+
+
+pred_test_boost_exp <- data.frame(Target = autodata_exp_test$Target, preds = pred_class_ad_test_boost_exp, probs = pred_ad_test_boost_exp$buy)
+
+# pred_test_good <- pred_test_boost %>% 
+#   filter(Target == "buy")
+
+confusionMatrix(data = pred_test_boost_exp$preds, reference = pred_test_boost_exp$Target, mode = "everything", positive = "buy")
+
+# ROC_AUC
+perf_ad_test_boost_exp <- performance(prediction(pred_ad_test_boost_exp[,2], autodata_exp_test$Target), "tpr", "fpr")
+perf_ad_test_boost_auc_exp <- performance(prediction(pred_ad_test_boost_exp[,2], autodata_exp_test$Target), "auc")
+plot(perf_ad_test_boost_exp)
+str(pred_ad_test_boost_exp[,1])
+test_auc_boost_exp = unlist(slot(perf_ad_test_boost_auc_exp, "y.values"))
+test_auc_boost_exp
+# as the numbered variables are scaled by variance the relative importance can be taken from coeficients
+
+str(pred_ad_test_boost_exp)
+```
+
+
 ## Tree model split 
 ```{r}
-# split dataset
-load(file = "./core_data/autodata_prep_split.Rdata")
+# split datasets
+
+splits <- c("nogen", "noage", "allvar", "novar")
+
+# all frames c("autodata_train_nogen", "autodata_train_noage", "autodata_train_allvar", "autodata_train_novar", "autodata_test_nogen", "autodata_test_noage", "autodata_test_allvar", "autodata_test_novar") 
+
+set.seed(85)
+
+# controller for boost
+
+xgb_control_exp <- trainControl(method = "adaptive_cv",
+                            number = 2,
+                            repeats = 2,
+                            search = "random",
+                            summaryFunction = twoClassSummary,
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = FALSE,
+                            sampling = NULL,
+                            adaptive = list(min =15, alpha = 0.05, 
+                                        method = "BT", complete = TRUE)) 
+
+
+for (set in splits) {
+  
+  ########
+  # create test & train 
+  
+  train <- get(paste("autodata_train", set, sep = "_"))
+  test <- get(paste("autodata_test", set, sep = "_"))
+  
+  train_x <- model.matrix(~. -ID, train[,-2])
+  train_y <- train$Target
+  
+  test_x <- model.matrix(~. -ID, test[, -2])
+  test_y <- test$Target
+  
+
+  ######
+  # train model
+  
+  # timer
+ 
+  start <- proc.time()
+
+  xmodel <- train(x = train_x,
+                           y = train_y,
+                           method = "xgbTree", 
+                           tree_method = "exact",
+                           eval_metric = "auc",
+                           trControl = xgb_control_exp,
+                           verbose = TRUE,
+                           metric = "ROC",
+                           maximize = TRUE,
+                           tuneLength= 2)
+
+  end <- proc.time() - start
+  end_time <- as.numeric((paste(end[3])))
+  
+  ######
+  # evaluate model
+  
+  # predictions
+
+  pred_prob <- predict(xmodel, test_x, type = "prob")
+
+  pred_class <- predict(xmodel, test_x, type = "raw")
+
+  pred <- data.frame(Target = test_y, preds = pred_class, probs = pred_prob$buy)
+
+  # confusion matrix
+  
+  confusionm <- confusionMatrix(data = pred$preds, reference = test_y, mode = "everything", positive = "buy")
+
+  # performance and ROC_AUC
+  
+  perf <- performance(prediction(pred_prob[,2], test_y), "tpr", "fpr")
+  perf_auc <- performance(prediction(pred_ad_test_boost_exp[,2], autodata_exp_test$Target), "auc")
+  auc <- unlist(slot(perf_ad_test_boost_auc_exp, "y.values"))
+  
+  # save all outputs
+  
+  listout <- llist(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
+  
+  assign(paste(set, "output", sep = "_"), listout)
+}
+
+
+
+
 ```
 
 
@@ -171,7 +426,7 @@ load(file = "./core_data/autodata_prep_split.Rdata")
 
 ## Tree model with filled variables
 
-
+# junk?
 ```{r, eval = FALSE}
 
 # getting tree to work
