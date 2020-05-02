@@ -3,8 +3,6 @@
 load(file = "./core_data/autodata_clean.Rdata")
 ```
 
-## programatic
-
 ```{r}
 # test and train sets
 autodata_purch <- autodata_clean %>% 

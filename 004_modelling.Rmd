@@ -5,7 +5,7 @@ load(file = "./core_data/extra_param_data.Rdata")
 ```
 
 ## linear model
-```{r}
+```{r, eval = FALSE}
 # standard glm
 # glm(Target ~. -ID, family = "binomial", data = autodata_train)
 
@@ -57,9 +57,100 @@ test_auc
 
 str(pred_ad_test_glm)
 ```
+
+### Caret glmnet for varimp
+```{r}
+
+registerDoParallel(cores = 10)
+
+set.seed(85)
+
+# controller for boost
+
+glmodelcon <- trainControl(method = "adaptive_cv",
+                            number = 10,
+                            repeats = 2,
+                            search = "random",
+                            summaryFunction = twoClassSummary, # prSummary twoClassSummary
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = TRUE,
+                            sampling = NULL,
+                            adaptive = list(min =3, alpha = 0.05, 
+                                        method = "BT", complete = TRUE)) 
+
+
+  ########
+  # create test & train 
+  
+  train <- autodata_exp_train
+  test <- autodata_exp_test
+  
+  train_x <- model.matrix(~. -ID, train[,-2])
+  train_y <- train$Target
+  
+  test_x <- model.matrix(~. -ID, test[, -2])
+  test_y <- test$Target
+  
+
+  ######
+  # train model
+  
+  # timer
+ 
+  start <- proc.time()
+
+  glmodel <- train(x = train_x,
+                           y = train_y,
+                           method = "glmnet", 
+                           tree_method = "exact",
+                           eval_metric = "auc",
+                           trControl = glmodelcon,
+                           verbose = TRUE,
+                           metric = "ROC", #AUC ROC
+                           maximize = TRUE,
+                           tuneLength= 6)
+
+  end <- proc.time() - start
+  end_time <- as.numeric((paste(end[3])))
+  
+  ######
+  # evaluate model
+  
+  # predictions
+
+  pred_prob <- predict(glmodel, test_x, type = "prob")
+
+  pred_class <- predict(glmodel, test_x, type = "raw")
+
+  pred <- data.frame(Target = test_y, preds = pred_class, probs = pred_prob$buy)
+
+  # confusion matrix
+  
+  confusionm <- confusionMatrix(data = pred$preds, reference = test_y, mode = "everything", positive = "buy")
+
+  # performance and ROC_AUC
+  pred$tperf <- ordered(pred$Target, levels = c("buy", "no"))
+  perf <- performance(prediction(pred_prob[,2], pred$tperf), "tpr", "fpr")
+  perf_auc <- performance(prediction(pred_prob[,2], pred$tperf), "auc")
+  auc <- unlist(slot(perf_auc, "y.values"))
+  
+  # save all outputs
+  
+  listout <- llist(glmodel, end_time, pred, confusionm, perf, perf_auc, auc)
+  
+  assign("glmcaret", listout)
+  
+ # save(glmcaret, file = "./models/glmcaret")
+  
+  varImp(glmodel, scale = FALSE)
+  
+```
+
+
 ### linear model with complexity
 
-```{r}
+```{r, eval = FALS}
 
 # standard glm with complex
 # glm(Target ~. -ID, family = "binomial", data = autodata_exp_train)
@@ -107,6 +198,8 @@ test_auc_glm_exp
 # as the numbered variables are scaled by variance the relative importance can be taken from coeficients
 
 str(pred_ad_test_glm)
+
+varImp(ad_exp_test_glm, scale = FALSE)
 ```
 
 ## Caret GLM
@@ -122,7 +215,7 @@ str(pred_ad_test_glm)
 
 ## Boosted Tree
 
-```{r}
+```{r, eval = FALS}
 
 
 autodata_train
@@ -207,7 +300,7 @@ str(pred_ad_test_boost)
 ```
 
 
-```{r}
+```{r, eval = FALS}
 test_matrix <- model.matrix(~. -ID, autodata_test[, -2])
 
 
@@ -239,7 +332,7 @@ str(pred_ad_test_boost)
 ```
 
 # complex tree
-```{r}
+```{r, eval = FALS}
 
 
 autodata_train
@@ -289,7 +382,7 @@ end_time
 
 print(autodata_xgbmodel_exp)
 ```
-```{r}
+```{r, eval = FALS}
 test_matrix <- model.matrix(~. -ID, autodata_exp_test[, -2])
 
 
@@ -322,7 +415,7 @@ str(pred_ad_test_boost_exp)
 
 
 ## Tree model split 
-```{r}
+```{r, eval = FALS}
 # split datasets
 
 splits <- c("nogen", "noage", "allvar", "novar")
@@ -417,7 +510,7 @@ save(list = splitmodels, file = "./models/splitmodelgood.Rdata")
 ```
 
 
-```{r}
+```{r, eval = FALS}
 
 combined_preds_split_boost <- novar_output$pred
 combined_preds_split_boost <- rbind(combined_preds_split_boost, allvar_output$pred, noage_output$pred, nogen_output$pred)
@@ -439,7 +532,7 @@ save(list = splitmodels, file = "./models/splitmodelgood.Rdata")
 
 #random forrest
 
-```{r}
+```{r, eval = FALS}
 set.seed(85)
 
 # controller for randomForest using ranger package
@@ -523,7 +616,7 @@ rfcontrol <- trainControl(method = "adaptive_cv",
 
 ## best model?
 
-```{r}
+```{r, eval = FALS}
 set.seed(85)
 
 # controller for boost
@@ -598,20 +691,32 @@ xcsplit <- trainControl(method = "adaptive_cv",
   
   # save all outputs
   
-  listout[] <- list(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
+  listout <- llist(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
   
   assign("complex_boost", listout)
   
-  save(complex_boost, file = "./models/boostf")
+  save(complex_boost, file = "./models/boostf3.Rdata")
+```
+### Variable Importance
+```{r}
+
+```
+
+
+### Partial Dependency Plots
+```{r}
+
+```
+
+## Predictions
+```{r}
+
 ```
 
 
 
 
-
-
-
-# junk?
+### junk?
 ```{r, eval = FALSE}
 
 # getting tree to work

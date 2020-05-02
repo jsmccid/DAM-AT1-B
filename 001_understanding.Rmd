@@ -100,4 +100,28 @@ autodata$total_km <- autodata$age_of_vehicle_years * autodata$annualised_mileage
 meantotalkm <- mean(autodata[autodata$Target == 1, "total_km", drop = "TRUE"])
 meantotalkm
 ```
+```{r}
+# outliers have been removed, could have identified customers who have likely purhcased elsewhere
+ggplot(autodata, aes(x = ID, y = mth_since_last_serv)) + geom_point()
+```
+
+```{r}
+# most repurchased cars
+autodata %>% 
+  filter(Target == 1) %>% 
+    ggplot(aes(x = car_model)) + geom_bar() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# What cars have issues?
+autodata %>% 
+  group_by(car_model) %>% 
+  summarise(nonshed = sum(non_sched_serv_warr)) %>% 
+ggplot(aes(x = car_model, y = nonshed)) + geom_col() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#most miles
+ggplot(autodata, aes(x = car_model, y = total_km)) + geom_box() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
