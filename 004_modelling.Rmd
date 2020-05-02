@@ -182,7 +182,7 @@ str(pred_ad_test_boost)
 
 xgb_adapt <- trainControl(method = "adaptive_cv",
                             number = 10,
-                            repeats = 10,
+                            repeats = 2,
                             search = "random",
                             summaryFunction = twoClassSummary,
                             classProbs = TRUE, #ROC AUC
@@ -233,6 +233,40 @@ print(autodata_xgbmodel_adapt)
 #  = 0.4693516, min_child_weight = 6 and subsample = 0.7489751.
 
 # same result for adaptive
+
+# long tune
+# ROC was used to select the optimal model using the largest value.
+# The final values used for the model were nrounds = 570, max_depth
+#  = 10, eta = 0.2089189, gamma = 7.282036, colsample_bytree
+#  = 0.3903721, min_child_weight = 0 and subsample = 0.9241232.
+
+# longer tune
+
+  test_x <- model.matrix(~. -ID + annualised_mileage*age_of_vehicle_years, autodata_test[, -2])
+  test_y <- autodata_test$Target
+
+  pred_prob <- predict(autodata_xgbmodel_adapt, test_x, type = "prob")
+
+  pred_class <- predict(autodata_xgbmodel_adapt, test_x, type = "raw")
+
+  pred <- data.frame(Target = test_y, preds = pred_class, probs = pred_prob$buy)
+
+  # confusion matrix
+  
+  confusionm <- confusionMatrix(data = pred$preds, reference = test_y, mode = "everything", positive = "buy")
+
+  # performance and ROC_AUC
+  
+  perf <- performance(prediction(pred_prob[,2], test_y), "tpr", "fpr")
+  perf_auc <- performance(prediction(pred_prob[,2], test_y), "auc")
+  auc <- unlist(slot(perf_auc, "y.values"))
+  
+  # save all outputs
+  listout <- list()
+  listout <- llist(autodata_xgbmodel_adapt, end_time, pred, confusionm, perf, auc)
+  
+  assign("xbg_long_tune", listout)
+  save(xbg_long_tune, file = "./models/longtuneboost.Rdata")
 ```
 
 ## Tree model split 
