@@ -428,7 +428,10 @@ combined_preds_split_boost$ease <- factor(combined_preds_split_boost$ease, level
 
 combined_preds_split_boost_cm <- confusionMatrix(data = combined_preds_split_boost$ease, reference = combined_preds_split_boost$Target, mode = "everything", positive = "buy")
 
-
+combined_preds_split_boost$Target <- ordered(combined_preds_split_boost$Target, levels = c("no", "buy"))
+combined_preds_split_boost_perfauc <- performance(prediction(combined_preds_split_boost[,3], combined_preds_split_boost$Target), "auc")
+comboauc <- unlist(slot(combined_preds_split_boost_perfauc, "y.values"))
+  
 splitmodels <- c("allvar_output", "novar_output", "nogen_output", "noage_output", "combined_preds_split_boost", "combined_preds_split_boost_cm")
 
 save(list = splitmodels, file = "./models/splitmodelgood.Rdata")
@@ -439,20 +442,18 @@ save(list = splitmodels, file = "./models/splitmodelgood.Rdata")
 ```{r}
 set.seed(85)
 
-registerDoParallel(cores = 6)
-
-# controller for boost
+# controller for randomForest using ranger package
 
 rfcontrol <- trainControl(method = "adaptive_cv",
-                            number = 2,
-                            repeats = 2,
+                            number = 6,
+                            repeats = 3,
                             search = "random",
                             summaryFunction = twoClassSummary, # prSummary twoClassSummary
                             classProbs = TRUE, #ROC AUC
-                            allowParallel = TRUE,
+                            allowParallel = FALSE,
                             verboseIter = TRUE,
                             sampling = NULL,
-                            adaptive = list(min =2, alpha = 0.05, 
+                            adaptive = list(min =6, alpha = 0.05, 
                                         method = "BT", complete = TRUE)) 
 
 
@@ -479,15 +480,14 @@ rfcontrol <- trainControl(method = "adaptive_cv",
 
   rfmodel <- train(x = train_x,
                            y = train_y,
-                           method = "parRF", 
-                           ntree = 1000,
-                           eval_metric = "auc",
+                           method = "ranger", 
+                           num.trees = 1000,
                            trControl = rfcontrol,
                            verbose = TRUE,
                            metric = "ROC", #AUC ROC
                            maximize = TRUE,
-                           tuneLength= 2)
-
+                           tuneLength= 25,
+                            num.threads = 10)
   end <- proc.time() - start
   end_time <- as.numeric((paste(end[3])))
   
@@ -517,14 +517,99 @@ rfcontrol <- trainControl(method = "adaptive_cv",
   listout <- llist(rfmodel, end_time, pred, confusionm, perf, auc)
   
   assign("rf_out", listout)
+  
 ```
 
 
-## Tree model gender filled
+## best model?
 
-## Tree model age filled
+```{r}
+set.seed(85)
 
-## Tree model with filled variables
+# controller for boost
+
+xcsplit <- trainControl(method = "adaptive_cv",
+                            number = 10,
+                            repeats = 3,
+                            search = "random",
+                            summaryFunction = twoClassSummary, # prSummary twoClassSummary
+                            classProbs = TRUE, #ROC AUC
+                            allowParallel = TRUE,
+                            verboseIter = TRUE,
+                            sampling = NULL,
+                            adaptive = list(min =7, alpha = 0.05, 
+                                        method = "BT", complete = TRUE)) 
+
+
+  ########
+  # create test & train 
+  
+  train <- autodata_exp_train
+  test <- autodata_exp_test
+  
+  train_x <- model.matrix(~. -ID, train[,-2])
+  train_y <- train$Target
+  
+  test_x <- model.matrix(~. -ID, test[, -2])
+  test_y <- test$Target
+  
+
+  ######
+  # train model
+  
+  # timer
+ 
+  start <- proc.time()
+
+  xmodel <- train(x = train_x,
+                           y = train_y,
+                           method = "xgbTree", 
+                           tree_method = "exact",
+                           eval_metric = "auc",
+                           trControl = xcsplit,
+                           verbose = TRUE,
+                           metric = "ROC", #AUC ROC
+                           maximize = TRUE,
+                           tuneLength= 20)
+
+  end <- proc.time() - start
+  end_time <- as.numeric((paste(end[3])))
+  
+  ######
+  # evaluate model
+  
+  # predictions
+
+  pred_prob <- predict(xmodel, test_x, type = "prob")
+
+  pred_class <- predict(xmodel, test_x, type = "raw")
+
+  pred <- data.frame(Target = test_y, preds = pred_class, probs = pred_prob$buy)
+
+  # confusion matrix
+  
+  confusionm <- confusionMatrix(data = pred$preds, reference = test_y, mode = "everything", positive = "buy")
+
+  # performance and ROC_AUC
+  pred$tperf <- ordered(pred$Target, levels = c("buy", "no"))
+  perf <- performance(prediction(pred_prob[,2], pred$tperf), "tpr", "fpr")
+  perf_auc <- performance(prediction(pred_prob[,2], pred$tperf), "auc")
+  auc <- unlist(slot(perf_auc, "y.values"))
+  
+  # save all outputs
+  
+  listout[] <- list(xmodel, end_time, pred, confusionm, perf, perf_auc, auc)
+  
+  assign("complex_boost", listout)
+  
+  save(complex_boost, file = "./models/boostf")
+```
+
+
+
+
+
+
 
 # junk?
 ```{r, eval = FALSE}

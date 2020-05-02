@@ -20,5 +20,6 @@ library(doParallel)
 library(gbm)
 library(BradleyTerry2)
 library(MLmetrics)
+library(ranger)
 ```
 
