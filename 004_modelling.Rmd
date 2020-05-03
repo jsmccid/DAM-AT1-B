@@ -699,13 +699,39 @@ xcsplit <- trainControl(method = "adaptive_cv",
 ```
 ### Variable Importance
 ```{r}
-
+varImp(xmodel, scale = FALSE)
+plot(varImp(xmodel))
 ```
 
+### relaxing
+```{r}
+cb_preds <- complex_boost$pred
+
+cb_preds$ease <- "no" 
+cb_preds[cb_preds$probs >= 0.15, "ease"] <- "buy"
+cb_preds$ease <- factor(cb_preds$ease, levels = c("buy", "no"))
+
+cb_preds_cm <- confusionMatrix(data = cb_preds$ease, reference = cb_preds$Target, mode = "everything", positive = "buy")
+cb_preds_cm
+```
 
 ### Partial Dependency Plots
 ```{r}
+# registerDoParallel(cores = 4)
+grid.arrange(
+partial(xmodel, pred.var = "nondeal", plot = TRUE, rug = TRUE, 
+          type="classification", prob=TRUE, parallel= FALSE, which.class = "buy", train=train_x),
+partial(xmodel, pred.var = "mth_since_last_serv", plot = TRUE, rug = TRUE, 
+          type="classification", prob=TRUE, parallel= FALSE, which.class = "buy", train=train_x),
+partial(xmodel, pred.var = "wear", plot = TRUE, rug = TRUE, 
+          type="classification", prob=TRUE, parallel= FALSE, which.class = "buy", train=train_x),
+partial(xmodel, pred.var = "sched_serv_paid", plot = TRUE, rug = TRUE, 
+          type="classification", prob=TRUE, parallel= FALSE, which.class = "buy", train=train_x),
+partial(xmodel, pred.var = "num_serv_dealer_purchased", plot = TRUE, rug = TRUE, 
+          type="classification", prob=TRUE, parallel= FALSE, which.class = "buy", train=train_x),
 
+ncol = 2
+)
 ```
 
 ## Predictions

@@ -1,0 +1,114 @@
+# Prediction
+
+```{r}
+# import validation dataset & clean with same parameters
+
+#NA's
+pot_nas <- c("", " ", "  ", ".", ",", "NaN", "NAN", "nan", "NA", "na", "N/A", "n/a")
+
+# , "NULL", "Null", "null" keeping null makes filtering easier
+
+# import dataset
+ad_valid <- read_csv("./core_data/repurchase_validation.csv", na = pot_nas)
+
+# Target, age band, gender, model, segment to factor
+ad_valid$gender <- as.factor(ad_valid$gender)
+ad_valid$car_model <- as.factor(ad_valid$car_model)
+ad_valid$car_segment <- as.factor(ad_valid$car_segment)
+
+ad_valid[ad_valid$age_band == "1. <25", "age_band"] <- paste("groupmedian",floor((18+25)/2),sep = "")
+ad_valid[ad_valid$age_band == "2. 25 to 34","age_band"] <- paste("groupmedian",floor((25+34)/2),sep = "")
+ad_valid[ad_valid$age_band == "3. 35 to 44","age_band"] <- paste("groupmedian",floor((35+44)/2),sep = "")
+ad_valid[ad_valid$age_band == "4. 45 to 54","age_band"] <- paste("groupmedian",floor((45+54)/2),sep = "")
+ad_valid[ad_valid$age_band == "5. 55 to 64","age_band"] <- paste("groupmedian",floor((55+64)/2),sep = "")
+ad_valid[ad_valid$age_band == "6. 65 to 74","age_band"] <- paste("groupmedian",floor((5+74)/2),sep = "")
+ad_valid[ad_valid$age_band == "7. 75+","age_band"] <- paste("groupmedian",floor((75+85)/2),sep = "")
+
+unique(ad_valid$age_band)
+
+ad_valid$age_band <- factor(ad_valid$age_band, levels = c("groupmedian21", "groupmedian29", "groupmedian39", "NULL", "groupmedian49", "groupmedian59", "groupmedian80"))
+
+
+```
+
+```{r}
+# prep with same framework
+#simpler extra parameters
+
+# total miles
+ad_valid$totalmil <- ad_valid$age_of_vehicle_years * ad_valid$annualised_mileage
+
+# loyalty total
+ad_valid$loyalty <- ad_valid$num_serv_dealer_purchased / ad_valid$total_services
+
+# reliability
+ad_valid$reliability <- ad_valid$non_sched_serv_warr / ad_valid$age_of_vehicle_years
+
+# service cost
+ad_valid$scost <-  ad_valid$total_paid_services / ad_valid$total_services
+
+# non-dealer services
+ad_valid$nondeal <- ad_valid$total_services - ad_valid$num_serv_dealer_purchased
+
+# wear 
+ #relativ wear
+ 
+  mmil <- mean(ad_valid$totalmil)
+  mage <- mean(ad_valid$age_of_vehicle_years)
+  mwear <- mmil* mage
+  ad_valid$wear <- (ad_valid$totalmil * ad_valid$age_of_vehicle_years) / mwear
+  
+# complex reliability based on wear
+ad_valid$crel <- ad_valid$non_sched_serv_warr / ad_valid$wear
+
+# maintainence consistency based on wear
+ad_valid$maincons <- ad_valid$wear / ad_valid$total_services
+
+# wear till service
+ad_valid$nextserv <- ad_valid$maincons - ((ad_valid$wear/ad_valid$age_of_vehicle_years/12)*(ad_valid$mth_since_last_serv))
+```
+
+```{r}
+# Import best model
+
+load(file = "./models/boostf3")
+xmodel <- complex_boost$xmodel
+
+
+#no model 19 fix
+trainlevels <- levels(autodata_exp_train$car_model)
+levels(ad_valid$car_model) <- trainlevels
+
+
+# create matrix
+
+  validmat <- model.matrix(~. -ID, ad_valid)
+
+  # make predictions
+  
+ probs <- predict(xmodel, validmat, type = "prob")
+  ad_valid$target_probability <- probs$buy
+
+  ad_valid$target_class <- predict(xmodel, validmat, type = "raw")
+  
+ # analyse predictions
+  
+  pred_output <- ad_valid[,c(1,26,27)]
+  
+  write_csv(pred_output, path = "./repurchase_validation_13448550.csv")
+  
+  
+  
+  nrow(pred_output[pred_output$target_class == "buy",])/nrow(pred_output)
+  #3% of validation set are of the target class
+   nrow(pred_output[pred_output$target_class == "buy",])
+   
+ pred_output$ease <- "no" 
+pred_output[pred_output$target_probability >= 0.2, "ease"] <- "buy"
+pred_output$ease <- factor(pred_output$ease, levels = c("buy", "no"))
+
+nrow(pred_output[pred_output$ease == "buy",])/nrow(pred_output)
+  #3% of validation set are of the target class
+   nrow(pred_output[pred_output$ease == "buy",])
+```
+

@@ -175,3 +175,31 @@ save(list = preped_data, file = "./core_data/autodata_prep.Rdata")
 save(list = expdata, file = "./core_data/extra_param_data.Rdata")
 ```
 
+```{r}
+#wearplot
+
+mmil <- mean(autodata_exp_train[autodata_exp_train$Target == "buy", "totalmil", drop = TRUE])
+mage <- mean(autodata_exp_train[autodata_exp_train$Target == "buy", "age_of_vehicle_years", drop = TRUE])
+mwear <- mmil*mage
+
+hmmwear <- (autodata_exp_train$totalmil[6856] * autodata_exp_train$age_of_vehicle_years[6856]) / mwear
+
+set.seed(456345)
+randomcarindex <- floor(runif(1, 1, 98502))
+
+wearplot <- data.frame(car = c("mean","mean"), age = c(0,mage), miles =c(0,mmil), wear = c(0,mwear), stringsAsFactors = FALSE)
+randomorigin <- as.data.frame(cbind(paste("car", randomcarindex, sep ="_"), 0,0,0), stringsAsFactors = FALSE)
+randomcar <-cbind(car = paste("car", randomcarindex, sep ="_"), autodata_exp_train[randomcarindex, c(7,18)])
+randomcar$wear <- randomcar[,2] * randomcar[,3] 
+names(randomcar) <- names(randomorigin)
+randomcar <- rbind(randomorigin, randomcar)
+names(randomcar) <- names(wearplot)
+wearplot <- rbind(wearplot, randomcar)
+wearplot$car <- as.factor(wearplot$car)
+wearplot$wear <- round(as.numeric(wearplot$wear), digits = 1)
+wearplot$age <- as.numeric(wearplot$age)
+wearplot$miles <- as.numeric(wearplot$miles)
+
+ggplot(wearplot, aes(x = age, y=miles, group = car, fill = car)) + geom_area() + geom_text(aes(label = wear))
+
+```

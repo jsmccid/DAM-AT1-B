@@ -2,7 +2,7 @@
 
 ```{r}
 #NA's
-pot_nas <- c("", " ", "  ", ".", ",", "NaN", "NAN", "nan", "NA", "na", "N/A", "n/a", "NULL", "Null", "null")
+pot_nas <- c("", " ", "  ", ".", ",", "NaN", "NAN", "nan", "NA", "na", "N/A", "n/a")
 
 # import dataset
 autodata <- read_csv("./core_data/repurchase_training.csv", na = pot_nas)
@@ -80,8 +80,8 @@ auto_cols <- names(autodata)
 auto_cols <- auto_cols[-(1:2)]
 
 for (clm in auto_cols) {
-  print(ggplot(auto_purchased, aes_string(x = clm)) + geom_bar() + labs(title = paste("purchased",clm, sep = "_")))
-  print(ggplot(auto_nopurch, aes_string(x = clm)) + geom_bar() + labs(title = paste("nopurchase",clm, sep = "_")))
+  print(ggplot(auto_purchased, aes_string(x = clm)) + geom_bar() + labs(title = paste("purchased",clm, sep = "_")) + theme(axis.text.x = element_text(angle = 45, hjust = 1)))
+  print(ggplot(auto_nopurch, aes_string(x = clm)) + geom_bar() + labs(title = paste("nopurchase",clm, sep = "_")) + theme(axis.text.x = element_text(angle = 45, hjust = 1)))
 }
 ```
 
@@ -107,21 +107,38 @@ ggplot(autodata, aes(x = ID, y = mth_since_last_serv)) + geom_point()
 
 ```{r}
 # most repurchased cars
-autodata %>% 
-  filter(Target == 1) %>% 
-    ggplot(aes(x = car_model)) + geom_bar() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+autodata$Target <- as.character(autodata$Target)
+autodata[autodata$Target == 0, "Target"] <- "no repuchase"
+autodata[autodata$Target == 1, "Target"] <- "repurchase"
+autodata$Target <- factor(autodata$Target, levels = c("repurchase","no repuchase"))
+autodata %>%
+    ggplot(aes(x = car_model, group=Target, fill = Target)) + geom_bar(aes(y = ..prop..,), stat = "count",position=position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(limits=c("model_1", "model_2", "model_3", "model_4", "model_5", "model_6", "model_7", "model_8", "model_9", "model_10", "model_11", "model_12", "model_13", "model_14", "model_15", 'model_16', "model_17", "model_18", "model_19")) +
+  scale_y_continuous(limits=c(0,0.3),labels = scales::percent)
 ```
 
 ```{r}
 # What cars have issues?
 autodata %>% 
   group_by(car_model) %>% 
-  summarise(nonshed = sum(non_sched_serv_warr)) %>% 
-ggplot(aes(x = car_model, y = nonshed)) + geom_col() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  summarise(nonshed = mean(non_sched_serv_warr)) %>% 
+ggplot(aes(x = car_model, y = nonshed)) + geom_col() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(limits=c("model_1", "model_2", "model_3", "model_4", "model_5", "model_6", "model_7", "model_8", "model_9", "model_10", "model_11", "model_12", "model_13", "model_14", "model_15", 'model_16', "model_17", "model_18", "model_19"))
 ```
 
 ```{r}
 #most miles
-ggplot(autodata, aes(x = car_model, y = total_km)) + geom_box() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggplot(autodata, aes(x = car_model, y = total_km)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(limits=c("model_1", "model_2", "model_3", "model_4", "model_5", "model_6", "model_7", "model_8", "model_9", "model_10", "model_11", "model_12", "model_13", "model_14", "model_15", 'model_16', "model_17", "model_18", "model_19"))
+```
+
+```{r}
+autodata %>%
+    ggplot(aes(x = num_dealers_visited, group=Target, fill = Target)) + geom_bar(aes(y = ..prop..,), stat = "count",position=position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+autodata %>%
+    ggplot(aes(x = annualised_mileage, group=Target, fill = Target)) + geom_bar(aes(y = ..prop..,), stat = "count",position=position_dodge()) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
